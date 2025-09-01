@@ -24,6 +24,7 @@ import MenuBookIcon from "@mui/icons-material/MenuBook";
 import AssessmentIcon from "@mui/icons-material/Assessment";
 import InsightsIcon from "@mui/icons-material/Insights";
 import AccountCircleIcon from "@mui/icons-material/AccountCircle"; // Admin icon
+import InsertDriveFileIcon from "@mui/icons-material/InsertDriveFile";
 
 const drawerWidth = 240;
 
@@ -35,6 +36,7 @@ const navItems = [
   { path: "/guidelines", label: "Guidelines", icon: <MenuBookIcon /> },
   { path: "/report", label: "Report", icon: <AssessmentIcon /> },
   { path: "/stats-board", label: "Stats Board", icon: <InsightsIcon /> },
+  { path: "/blank", label: "Blank Page", icon: <InsertDriveFileIcon /> },
 ];
 
 export default function AppLayout() {
