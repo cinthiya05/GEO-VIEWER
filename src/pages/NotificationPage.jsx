@@ -21,12 +21,30 @@ const NotificationPage = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
 
-  // Fetch all notifications
+  // Fetch notifications and join with SOS details
   useEffect(() => {
     const fetchNotifications = async () => {
       try {
         const res = await axios.get("http://localhost:5000/notifications");
-        setNotifications(res.data);
+        const notifs = res.data;
+
+        // Fetch sos details for each notification
+        const enriched = await Promise.all(
+          notifs.map(async (note) => {
+            try {
+              const sosRes = await axios.get(
+                `http://localhost:5000/sos/id/${note.sos_id}`
+              );
+              console.log("Fetched SOS:", sosRes.data);
+              return { ...note, ...sosRes.data.data }; // merge notification + sos details
+            } catch (sosErr) {
+              console.error("Error fetching SOS for", note.sos_id, sosErr);
+              return note; // fallback: keep original
+            }
+          })
+        );
+
+        setNotifications(enriched);
       } catch (err) {
         console.error("Error fetching notifications:", err);
         setError("Failed to fetch notifications from server");
@@ -97,7 +115,7 @@ const NotificationPage = () => {
                   <TableCell>{note.address}</TableCell>
                   <TableCell>{note.contact}</TableCell>
                   <TableCell>{note.email}</TableCell>
-                  <TableCell>{note.timestamp}</TableCell>
+                  <TableCell>{note.timestamp || note.notification_sent_at}</TableCell>
                   <TableCell>
                     {renderStatus(
                       note.email_status,
