@@ -11,6 +11,8 @@ import ScheduledTips from './pages/ScheduledTips';
 import Guidelines from './pages/Guidelines';
 import Report from './pages/Report';
 import StatsBoard from './pages/StatsBoard'
+import BlankPage from "./pages/BlankPage";
+
 
 function App() {
   return (
@@ -27,6 +29,7 @@ function App() {
           <Route path="/guidelines" element={<Guidelines />} />
           <Route path="/report" element={<Report />} />
           <Route path="/stats-board" element={<StatsBoard />} />
+          <Route path="blank" element={<BlankPage />} />
         </Route>
       </Routes>
     </Router>
