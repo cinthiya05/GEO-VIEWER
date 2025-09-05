@@ -36,7 +36,7 @@ const navItems = [
   { path: "/guidelines", label: "Guidelines", icon: <MenuBookIcon /> },
   { path: "/report", label: "Report", icon: <AssessmentIcon /> },
   { path: "/stats-board", label: "Stats Board", icon: <InsightsIcon /> },
-  { path: "/blank", label: "Blank Page", icon: <InsertDriveFileIcon /> },
+  { path: "/evidence", label: "Evidence", icon: <InsertDriveFileIcon /> },
 ];
 
 export default function AppLayout() {

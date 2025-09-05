@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef } from "react";
 import {
   Typography,
   Table,
@@ -14,12 +14,13 @@ import {
   Box,
   Stack,
   Tooltip,
-  Chip
-} from '@mui/material';
-import VisibilityIcon from '@mui/icons-material/Visibility';
-import RefreshIcon from '@mui/icons-material/Refresh';
-import RoomIcon from '@mui/icons-material/Room';
-import GetAppIcon from '@mui/icons-material/GetApp'; // ✅ Download icon
+  Chip,
+  Snackbar,
+  Alert,
+} from "@mui/material";
+import RefreshIcon from "@mui/icons-material/Refresh";
+import RoomIcon from "@mui/icons-material/Room";
+import GetAppIcon from "@mui/icons-material/GetApp";
 
 const HistoryPage = () => {
   const [locations, setLocations] = useState([]);
@@ -28,8 +29,22 @@ const HistoryPage = () => {
   const [notifyFlag, setNotifyFlag] = useState(false);
   const lastTriggeredRef = useRef(null);
 
+  // Snackbar state
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    severity: "success",
+    message: "",
+  });
+
+  const showSnackbar = (severity, message) => {
+    setSnackbar({ open: true, severity, message });
+  };
+
+  /** 🔹 Fetch from Firebase */
   const fetchLocations = () => {
-    fetch('https://alert-buddy-tracker-default-rtdb.firebaseio.com/locations.json')
+    fetch(
+      "https://alert-buddy-tracker-default-rtdb.firebaseio.com/locations.json"
+    )
       .then((res) => res.json())
       .then((data) => {
         const parsedData = Object.entries(data || {}).map(([key, value]) => ({
@@ -41,13 +56,17 @@ const HistoryPage = () => {
         );
         setLocations(sorted);
       })
-      .catch((error) => console.error("❌ Failed to fetch locations:", error));
+      .catch((error) => {
+        console.error("❌ Failed to fetch locations:", error);
+        showSnackbar("error", "❌ Failed to fetch locations.");
+      });
   };
 
   useEffect(() => {
     fetchLocations();
   }, []);
 
+  /** 🔹 Notification effect */
   useEffect(() => {
     if (!notifyFlag) return;
 
@@ -57,12 +76,10 @@ const HistoryPage = () => {
       const latest = locations[0];
       const latestTimestamp = new Date(latest.timestamp).getTime();
 
-      if (lastTriggeredRef.current === latestTimestamp) {
-        console.log("⏸️ No new location for notification.");
-        return;
-      }
+      // Prevent duplicate trigger
+      if (lastTriggeredRef.current === latestTimestamp) return;
 
-      // Step 1: Create SOS event
+      // Step 1: Create SOS payload
       const sosPayload = {
         user_id: latest.id,
         name: latest.name,
@@ -75,6 +92,8 @@ const HistoryPage = () => {
         lng: latest.lng,
         timestamp: latest.timestamp,
         sosType: latest.sosType,
+        photo: latest.photos || null,
+        voice: latest.voice || null,
       };
 
       fetch("http://localhost:5000/sos", {
@@ -84,18 +103,24 @@ const HistoryPage = () => {
       })
         .then((res) => res.json())
         .then((sosRes) => {
-          console.log("🆘 SOS created:", sosRes);
+          if (sosRes.sos_id) {
+            showSnackbar("success", "✅ SOS saved successfully!");
+          } else {
+            showSnackbar("error", "❌ SOS insert failed.");
+            return;
+          }
 
           // Step 2: Send notification
           const notifyUrl = `http://localhost:5000/notify?lat=${latest.lat}&lon=${latest.lng}`;
+
           fetch(notifyUrl)
             .then((res) => res.json())
             .then((notifyRes) => {
-              console.log("✅ Notification sent:", notifyRes);
+              showSnackbar("success", "📩 Notification sent!");
 
               lastTriggeredRef.current = latestTimestamp;
 
-              // Step 3: Store notification in DB
+              // Step 3: Store notification log
               const notificationPayload = {
                 sos_id: sosRes.sos_id,
                 notification_sent_at: new Date().toISOString(),
@@ -113,43 +138,54 @@ const HistoryPage = () => {
                 body: JSON.stringify(notificationPayload),
               })
                 .then((res) => res.json())
-                .then((dbRes) => {
-                  console.log("📦 Notification stored in DB:", dbRes);
+                .then(() => {
+                  showSnackbar("success", "📦 Notification log stored!");
                 })
                 .catch((err) => {
-                  console.error("❌ Failed to store notification:", err);
+                  console.error("❌ Notification DB Insert Failed:", err);
+                  showSnackbar(
+                    "error",
+                    "❌ Failed to store notification log."
+                  );
                 });
             })
             .catch((err) => {
               console.error("❌ Failed to send notification:", err);
+              showSnackbar("error", "❌ Notification sending failed.");
             });
         })
         .catch((err) => {
           console.error("❌ Failed to create SOS:", err);
+          showSnackbar("error", "❌ SOS creation failed.");
         });
-    }, 60000); // run every 1 minute
+    }, 10000); // every 10s
 
     return () => clearInterval(interval);
   }, [notifyFlag, locations]);
 
+  /** 🔹 Toggle Notification */
   const toggleNotification = () => {
     setNotifyFlag((prev) => {
       const newState = !prev;
-      console.log(`📣 Notify flag set to: ${newState ? 'ON (1)' : 'OFF (0)'}`);
+      showSnackbar(
+        "info",
+        `📣 Notification ${newState ? "started" : "stopped"}`
+      );
       return newState;
     });
   };
 
+  /** 🔹 Pagination */
   const handleChangePage = (_, newPage) => setPage(newPage);
   const handleChangeRowsPerPage = (event) => {
     setRowsPerPage(+event.target.value);
     setPage(0);
   };
 
-  // ✅ Download CSV
+  /** 🔹 Download CSV */
   const downloadCSV = () => {
     if (locations.length === 0) {
-      alert("No data available to download.");
+      showSnackbar("warning", "⚠️ No data available to download.");
       return;
     }
 
@@ -157,7 +193,7 @@ const HistoryPage = () => {
     const rows = locations
       .map((row) =>
         Object.values(row)
-          .map((val) => `"${val}"`) // Wrap in quotes
+          .map((val) => `"${val}"`)
           .join(",")
       )
       .join("\n");
@@ -176,7 +212,7 @@ const HistoryPage = () => {
 
   return (
     <Box sx={{ px: 2, py: 4 }}>
-      <Box sx={{ maxWidth: '100%', mx: 'auto' }}>
+      <Box sx={{ maxWidth: "100%", mx: "auto" }}>
         {/* Header */}
         <Stack
           direction="row"
@@ -184,17 +220,17 @@ const HistoryPage = () => {
           alignItems="center"
           mb={2}
         >
-          <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
+          <Typography variant="h5" sx={{ fontWeight: "bold" }}>
             Location History
           </Typography>
 
           <Stack direction="row" spacing={2}>
             <Button
-              variant={notifyFlag ? 'contained' : 'outlined'}
-              color={notifyFlag ? 'error' : 'primary'}
+              variant={notifyFlag ? "contained" : "outlined"}
+              color={notifyFlag ? "error" : "primary"}
               onClick={toggleNotification}
             >
-              {notifyFlag ? 'Stop Notification (0)' : 'Start Notification (1)'}
+              {notifyFlag ? "Stop Notification (0)" : "Start Notification (1)"}
             </Button>
             <Button
               variant="outlined"
@@ -214,22 +250,25 @@ const HistoryPage = () => {
         </Stack>
 
         {/* Table */}
-        <TableContainer component={Paper} sx={{ borderRadius: 3, boxShadow: 3 }}>
+        <TableContainer
+          component={Paper}
+          sx={{ borderRadius: 3, boxShadow: 3 }}
+        >
           <Table>
-            <TableHead sx={{ backgroundColor: '#f1f5f9' }}>
+            <TableHead sx={{ backgroundColor: "#f1f5f9" }}>
               <TableRow>
-                <TableCell sx={{ fontWeight: 'bold' }}>ID</TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>Name</TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>Address</TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>Contact</TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>Email</TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>Emergency 1</TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>Emergency 2</TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>Latitude</TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>Longitude</TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>SOS Type</TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>Timestamp</TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>Action</TableCell>
+                <TableCell sx={{ fontWeight: "bold" }}>ID</TableCell>
+                <TableCell sx={{ fontWeight: "bold" }}>Name</TableCell>
+                <TableCell sx={{ fontWeight: "bold" }}>Address</TableCell>
+                <TableCell sx={{ fontWeight: "bold" }}>Contact</TableCell>
+                <TableCell sx={{ fontWeight: "bold" }}>Email</TableCell>
+                <TableCell sx={{ fontWeight: "bold" }}>Emergency 1</TableCell>
+                <TableCell sx={{ fontWeight: "bold" }}>Emergency 2</TableCell>
+                <TableCell sx={{ fontWeight: "bold" }}>Latitude</TableCell>
+                <TableCell sx={{ fontWeight: "bold" }}>Longitude</TableCell>
+                <TableCell sx={{ fontWeight: "bold" }}>SOS Type</TableCell>
+                <TableCell sx={{ fontWeight: "bold" }}>Timestamp</TableCell>
+                <TableCell sx={{ fontWeight: "bold" }}>Action</TableCell>
               </TableRow>
             </TableHead>
 
@@ -240,10 +279,8 @@ const HistoryPage = () => {
                   <TableRow
                     key={row.id}
                     sx={{
-                      backgroundColor: index % 2 === 0 ? '#ffffff' : '#f8fafc',
-                      '&:hover': {
-                        backgroundColor: '#e2e8f0',
-                      },
+                      backgroundColor: index % 2 === 0 ? "#ffffff" : "#f8fafc",
+                      "&:hover": { backgroundColor: "#e2e8f0" },
                     }}
                   >
                     <TableCell>{row.id}</TableCell>
@@ -261,13 +298,13 @@ const HistoryPage = () => {
                       <Chip
                         label={row.sosType}
                         color={
-                          row.sosType === 'SOS-Button'
-                            ? 'error'
-                            : row.sosType === 'SOS-Voice'
-                            ? 'primary'
-                            : row.sosType === 'SOS-hand-detector'
-                            ? 'warning'
-                            : 'default'
+                          row.sosType === "SOS-Button"
+                            ? "error"
+                            : row.sosType === "SOS-Voice"
+                            ? "primary"
+                            : row.sosType === "SOS-hand-detector"
+                            ? "warning"
+                            : "default"
                         }
                         size="small"
                       />
@@ -306,6 +343,22 @@ const HistoryPage = () => {
           />
         </TableContainer>
       </Box>
+
+      {/* Snackbar Notification */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+      >
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={snackbar.severity}
+          sx={{ width: "100%" }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

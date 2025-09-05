@@ -11,7 +11,8 @@ import ScheduledTips from './pages/ScheduledTips';
 import Guidelines from './pages/Guidelines';
 import Report from './pages/Report';
 import StatsBoard from './pages/StatsBoard'
-import BlankPage from "./pages/BlankPage";
+import BlankPage from "./pages/Evidence";
+import EvidenceDetails from "./pages/EvidenceDetails";
 
 
 function App() {
@@ -29,7 +30,8 @@ function App() {
           <Route path="/guidelines" element={<Guidelines />} />
           <Route path="/report" element={<Report />} />
           <Route path="/stats-board" element={<StatsBoard />} />
-          <Route path="blank" element={<BlankPage />} />
+          <Route path="/evidence" element={<BlankPage />} />
+          <Route path="/evidence/:id" element={<EvidenceDetails />} />
         </Route>
       </Routes>
     </Router>
