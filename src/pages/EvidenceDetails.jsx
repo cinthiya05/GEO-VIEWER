@@ -47,7 +47,7 @@ const EvidenceDetails = () => {
         setLoading(false);
       })
       .catch((err) => {
-        console.error("❌ Fetch failed:", err);
+        console.error("❌ Fetch failed:", err);f
         setLoading(false);
       });
   }, [id]);

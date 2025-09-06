@@ -17,6 +17,11 @@ import {
   Chip,
   Snackbar,
   Alert,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
 } from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import RoomIcon from "@mui/icons-material/Room";
@@ -27,6 +32,9 @@ const HistoryPage = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
   const [notifyFlag, setNotifyFlag] = useState(false);
+  const [downloadDialogOpen, setDownloadDialogOpen] = useState(false);
+  const [downloadFileName, setDownloadFileName] = useState("location_history.csv");
+  const [searchName, setSearchName] = useState("");
   const lastTriggeredRef = useRef(null);
 
   // Snackbar state
@@ -111,8 +119,7 @@ const HistoryPage = () => {
           }
 
           // Step 2: Send notification
-          const notifyUrl = `http://localhost:5000/notify?lat=${latest.lat}&lon=${latest.lng}`;
-
+          const notifyUrl = `http://localhost:5000/notify?lat=${latest.lat}&lon=${latest.lng}&name=${encodeURIComponent(latest.name)}&phone_number=${encodeURIComponent(latest.contact)}`;
           fetch(notifyUrl)
             .then((res) => res.json())
             .then((notifyRes) => {
@@ -183,19 +190,41 @@ const HistoryPage = () => {
   };
 
   /** 🔹 Download CSV */
-  const downloadCSV = () => {
+  const handleDownloadClick = () => {
+    setDownloadDialogOpen(true);
+  };
+
+  const handleDownloadConfirm = () => {
+    downloadCSV(downloadFileName);
+    setDownloadDialogOpen(false);
+  };
+
+  const handleDownloadCancel = () => {
+    setDownloadDialogOpen(false);
+  };
+
+  const downloadCSV = (fileName = "location_history.csv") => {
     if (locations.length === 0) {
       showSnackbar("warning", "⚠️ No data available to download.");
       return;
     }
 
-    const headers = Object.keys(locations[0]).join(",") + "\n";
+    // Only include columns shown in the table
+    const columns = [
+      "name",
+      "address",
+      "contact",
+      "email",
+      "emergency1",
+      "emergency2",
+      "lat",
+      "lng",
+      "sosType",
+      "timestamp",
+    ];
+    const headers = columns.join(",") + "\n";
     const rows = locations
-      .map((row) =>
-        Object.values(row)
-          .map((val) => `"${val}"`)
-          .join(",")
-      )
+      .map((row) => columns.map((col) => `"${row[col] ?? ""}"`).join(","))
       .join("\n");
 
     const csvData = headers + rows;
@@ -204,7 +233,7 @@ const HistoryPage = () => {
 
     const link = document.createElement("a");
     link.href = url;
-    link.setAttribute("download", "location_history.csv");
+    link.setAttribute("download", fileName);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -223,26 +252,98 @@ const HistoryPage = () => {
           <Typography variant="h5" sx={{ fontWeight: "bold" }}>
             Location History
           </Typography>
-
-          <Stack direction="row" spacing={2}>
+          <Stack direction="row" spacing={2} alignItems="center">
+            <TextField
+              label="Search by Name"
+              variant="outlined"
+              value={searchName}
+              onChange={e => setSearchName(e.target.value)}
+              size="small"
+              sx={{
+                minWidth: 200,
+                background: '#fff',
+                boxShadow: "0 2px 8px 0 rgba(0,0,0,0.10)",
+                borderRadius: 2,
+                fontWeight: "bold",
+                color: '#fff',
+                '& .MuiOutlinedInput-input': {
+                  color: '#000',
+                },
+                '& .MuiOutlinedInput-root': {
+                  background: '#fff',
+                  '& fieldset': {
+                    borderColor: '#6a82fb',
+                  },
+                  '&:hover fieldset': {
+                    borderColor: '#fc5c7d',
+                  },
+                  '&.Mui-focused fieldset': {
+                    borderColor: '#56ab2f',
+                  },
+                },
+              }}
+            />
             <Button
-              variant={notifyFlag ? "contained" : "outlined"}
-              color={notifyFlag ? "error" : "primary"}
+              variant="contained"
+              color={notifyFlag ? "error" : "success"}
               onClick={toggleNotification}
+              sx={{
+                background: notifyFlag
+                  ? "linear-gradient(90deg, #ff416c 0%, #ff4b2b 100%)"
+                  : "linear-gradient(90deg, #56ab2f 0%, #a8e063 100%)",
+                color: "#fff",
+                boxShadow: "0 4px 20px 0 rgba(0,0,0,0.15)",
+                fontWeight: "bold",
+                borderRadius: 2,
+                px: 3,
+                py: 1.2,
+                '&:hover': {
+                  opacity: 0.9,
+                  boxShadow: "0 6px 24px 0 rgba(0,0,0,0.18)"
+                }
+              }}
             >
               {notifyFlag ? "Stop Notification (0)" : "Start Notification (1)"}
             </Button>
             <Button
-              variant="outlined"
+              variant="contained"
+              color="info"
               startIcon={<RefreshIcon />}
               onClick={fetchLocations}
+              sx={{
+                background: "linear-gradient(90deg, #2193b0 0%, #6dd5ed 100%)",
+                color: "#fff",
+                boxShadow: "0 4px 20px 0 rgba(0,0,0,0.15)",
+                fontWeight: "bold",
+                borderRadius: 2,
+                px: 3,
+                py: 1.2,
+                '&:hover': {
+                  opacity: 0.9,
+                  boxShadow: "0 6px 24px 0 rgba(0,0,0,0.18)"
+                }
+              }}
             >
               Refresh
             </Button>
             <Button
-              variant="outlined"
+              variant="contained"
+              color="primary"
               startIcon={<GetAppIcon />}
-              onClick={downloadCSV}
+              onClick={handleDownloadClick}
+              sx={{
+                background: "linear-gradient(90deg, #fc5c7d 0%, #6a82fb 100%)",
+                color: "#fff",
+                boxShadow: "0 4px 20px 0 rgba(0,0,0,0.15)",
+                fontWeight: "bold",
+                borderRadius: 2,
+                px: 3,
+                py: 1.2,
+                '&:hover': {
+                  opacity: 0.9,
+                  boxShadow: "0 6px 24px 0 rgba(0,0,0,0.18)"
+                }
+              }}
             >
               Download
             </Button>
@@ -257,7 +358,7 @@ const HistoryPage = () => {
           <Table>
             <TableHead sx={{ backgroundColor: "#f1f5f9" }}>
               <TableRow>
-                <TableCell sx={{ fontWeight: "bold" }}>ID</TableCell>
+                {/* Removed ID column */}
                 <TableCell sx={{ fontWeight: "bold" }}>Name</TableCell>
                 <TableCell sx={{ fontWeight: "bold" }}>Address</TableCell>
                 <TableCell sx={{ fontWeight: "bold" }}>Contact</TableCell>
@@ -274,6 +375,7 @@ const HistoryPage = () => {
 
             <TableBody>
               {locations
+                .filter(row => row.name?.toLowerCase().includes(searchName.toLowerCase()))
                 .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
                 .map((row, index) => (
                   <TableRow
@@ -283,7 +385,7 @@ const HistoryPage = () => {
                       "&:hover": { backgroundColor: "#e2e8f0" },
                     }}
                   >
-                    <TableCell>{row.id}</TableCell>
+                    {/* Removed ID cell */}
                     <TableCell>{row.name}</TableCell>
                     <TableCell>{row.address}</TableCell>
                     <TableCell>
@@ -359,6 +461,67 @@ const HistoryPage = () => {
           {snackbar.message}
         </Alert>
       </Snackbar>
+
+      {/* Download Dialog */}
+      <Dialog open={downloadDialogOpen} onClose={handleDownloadCancel}>
+        <DialogTitle>Download CSV</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="File Name"
+            type="text"
+            fullWidth
+            value={downloadFileName}
+            onChange={e => setDownloadFileName(e.target.value)}
+            helperText="Include .csv extension"
+            sx={{
+              background: '#fff',
+              boxShadow: "0 2px 8px 0 rgba(0,0,0,0.10)",
+              borderRadius: 2,
+              fontWeight: "bold",
+              color: '#000',
+              '& .MuiOutlinedInput-input': {
+                color: '#000',
+              },
+              '& .MuiOutlinedInput-root': {
+                background: '#fff',
+                '& fieldset': {
+                  borderColor: '#6a82fb',
+                },
+                '&:hover fieldset': {
+                  borderColor: '#fc5c7d',
+                },
+                '&.Mui-focused fieldset': {
+                  borderColor: '#56ab2f',
+                },
+              },
+            }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleDownloadCancel} color="error">Cancel</Button>
+          <Button
+            onClick={handleDownloadConfirm}
+            variant="contained"
+            sx={{
+              background: "linear-gradient(90deg, #fc5c7d 0%, #6a82fb 100%)",
+              color: "#fff",
+              boxShadow: "0 4px 20px 0 rgba(0,0,0,0.15)",
+              fontWeight: "bold",
+              borderRadius: 2,
+              px: 3,
+              py: 1.2,
+              '&:hover': {
+                opacity: 0.9,
+                boxShadow: "0 6px 24px 0 rgba(0,0,0,0.18)"
+              }
+            }}
+          >
+            Download
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
